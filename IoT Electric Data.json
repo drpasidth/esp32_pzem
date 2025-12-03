@@ -1,0 +1,122 @@
+{
+  "name": "IoT Electric Data",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "iot-data",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -352,
+        -48
+      ],
+      "id": "2e8d4385-2a73-4756-8e52-3490ac3f82ef",
+      "name": "Webhook",
+      "webhookId": "d3f5efd0-3e70-4784-bc3a-76f3682d3de2"
+    },
+    {
+      "parameters": {
+        "table": "electric",
+        "dataMode": "defineBelow",
+        "valuesToSend": {
+          "values": [
+            {
+              "column": "devid",
+              "value": "={{ $json.body.devid }}"
+            },
+            {
+              "column": "mcid",
+              "value": "={{ $json.body.mcid }}"
+            },
+            {
+              "column": "amp",
+              "value": "={{ $json.body.current }}"
+            },
+            {
+              "column": "volt",
+              "value": "={{ $json.body.voltage }}"
+            },
+            {
+              "column": "pf",
+              "value": "={{ $json.body.pf }}"
+            },
+            {
+              "column": "energy",
+              "value": "={{ $json.body.energy }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "9418ced3-e4f9-4123-97b0-826a7f5777fa",
+      "name": "MySQL",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        -112,
+        -48
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "Q0i4JbstLIa8z9lB",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"status\": \"OK\", \"message\": \"Data saved\"}",
+        "options": {}
+      },
+      "id": "0a644c0b-c665-4746-930b-a12b1d33b128",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        96,
+        -48
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "MySQL": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "MySQL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "f50ed919-cee1-496c-b696-a836577249d4",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "9acb3c9bf0eb87970b4453d9ea6fd3a4299f471dbfd3112b967106023113d04c"
+  },
+  "id": "Gpe9hXUehsBZB4Rj",
+  "tags": []
+}
