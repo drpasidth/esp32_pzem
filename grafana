@@ -1,0 +1,58 @@
+# Installing Grafana on Ubuntu (Digital Ocean)
+
+## 1. Update System Packages
+```bash
+sudo apt update && sudo apt upgrade -y
+```
+
+## 2. Install Dependencies
+```bash
+sudo apt install -y apt-transport-https software-properties-common wget
+```
+
+## 3. Add Grafana GPG Key
+```bash
+sudo mkdir -p /etc/apt/keyrings/
+wget -q -O - https://apt.grafana.com/gpg.key | gpg --dearmor | sudo tee /etc/apt/keyrings/grafana.gpg > /dev/null
+```
+
+## 4. Add Grafana Repository
+```bash
+echo "deb [signed-by=/etc/apt/keyrings/grafana.gpg] https://apt.grafana.com stable main" | sudo tee /etc/apt/sources.list.d/grafana.list
+```
+
+## 5. Install Grafana
+```bash
+sudo apt update
+sudo apt install grafana -y
+```
+
+## 6. Start & Enable Grafana Service
+```bash
+sudo systemctl start grafana-server
+sudo systemctl enable grafana-server
+```
+
+## 7. Check Status
+```bash
+sudo systemctl status grafana-server
+```
+
+## 8. Configure Firewall (if enabled)
+```bash
+sudo ufw allow 3000/tcp
+```
+
+## 9. Access Grafana
+Open your browser and navigate to:
+```
+http://<your-droplet-ip>:3000
+```
+
+**Default credentials:**
+- **Username:** `admin`
+- **Password:** `admin`
+
+You'll be prompted to change the password on first login.
+
+---
