@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IoT Real-Time Monitor</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a3e 100%);
+            color: #fff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #00d4ff;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 20px;
+        }
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .controls select, .controls button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .controls select {
+            background: #2d2d5a;
+            color: #fff;
+        }
+        .controls button {
+            background: #00d4ff;
+            color: #000;
+            font-weight: bold;
+        }
+        .controls button:hover { background: #00a8cc; }
+        .controls button.active { background: #00ff88; }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 15px;
+            max-width: 1200px;
+            margin: 0 auto 20px;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #1a1a3e, #2d2d5a);
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .stat-label { color: #888; font-size: 13px; }
+        .volt { color: #ffcc00; }
+        .amp { color: #ff6b6b; }
+        .pf { color: #00ff88; }
+        .power { color: #00d4ff; }
+        .energy { color: #bf94ff; }
+        .charts {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .chart-container {
+            background: rgba(26, 26, 62, 0.8);
+            border-radius: 15px;
+            padding: 15px;
+        }
+        .chart-title {
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 15px;
+            color: #aaa;
+        }
+        .status {
+            text-align: center;
+            margin-top: 20px;
+            color: #666;
+            font-size: 12px;
+        }
+        .status.online { color: #00ff88; }
+        .status.error { color: #ff6b6b; }
+        .alert {
+            background: #ff4444;
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 20px;
+            display: none;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .alert.show { display: block; }
+        .refresh-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            background: #00ff88;
+            border-radius: 50%;
+            margin-right: 5px;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+    </style>
+</head>
+<body>
+    <h1>⚡ IoT Power Monitor</h1>
+    <p class="subtitle">Real-Time Electrical Monitoring Dashboard</p>
+    
+    <div class="alert" id="alert">⚠️ ALERT: Abnormal reading detected!</div>
+    
+    <div class="controls">
+        <select id="devid">
+            <option value="">All Devices</option>
+            <option value="e089">Device: e089</option>
+            <option value="e099">Device: e099</option>
+            <option value="TEST-001">Device: TEST</option>
+        </select>
+        <select id="hours">
+            <option value="1">Last 1 Hour</option>
+            <option value="6">Last 6 Hours</option>
+            <option value="24" selected>Last 24 Hours</option>
+            <option value="48">Last 2 Days</option>
+            <option value="168">Last 7 Days</option>
+            <option value="336">Last 14 Days</option>
+            <option value="720">Last 1 Month</option>
+            <option value="2160">Last 3 Months</option>
+            <option value="4320">Last 6 Months</option>
+            <option value="8760">Last 1 Year</option>
+        </select>
+        <select id="refreshInterval">
+            <option value="5000">Refresh: 5s</option>
+            <option value="10000">Refresh: 10s</option>
+            <option value="30000" selected>Refresh: 30s</option>
+            <option value="60000">Refresh: 60s</option>
+            <option value="300000">Refresh: 5 min</option>
+            <option value="600000">Refresh: 10 min</option>
+        </select>
+        <button onclick="fetchData()" id="refreshBtn">🔄 Refresh</button>
+        <button onclick="toggleAutoRefresh()" id="autoBtn">⏸️ Pause</button>
+    </div>
+    
+    <div class="stats">
+        <div class="stat-card">
+            <div class="stat-value volt" id="currentVolt">---</div>
+            <div class="stat-label">Voltage (V)</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value amp" id="currentAmp">---</div>
+            <div class="stat-label">Current (A)</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value pf" id="currentPF">---</div>
+            <div class="stat-label">Power Factor</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value power" id="currentPower">---</div>
+            <div class="stat-label">Power (W)</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value energy" id="currentEnergy">---</div>
+            <div class="stat-label">Energy (kWh)</div>
+        </div>
+    </div>
+    
+    <div class="charts">
+        <div class="chart-container">
+            <div class="chart-title">📈 Voltage (V)</div>
+            <canvas id="voltChart"></canvas>
+        </div>
+        <div class="chart-container">
+            <div class="chart-title">📈 Current (A)</div>
+            <canvas id="ampChart"></canvas>
+        </div>
+        <div class="chart-container">
+            <div class="chart-title">📈 Power Factor</div>
+            <canvas id="pfChart"></canvas>
+        </div>
+        <div class="chart-container">
+            <div class="chart-title">📈 Power (W)</div>
+            <canvas id="powerChart"></canvas>
+        </div>
+    </div>
+    
+    <p class="status" id="status">Loading...</p>
+
+    <script>
+        const API_URL = 'getData.php';
+        let voltChart, ampChart, pfChart, powerChart;
+        let refreshTimer = null;
+        let autoRefresh = true;
+        
+        const chartConfig = (label, color, data, labels) => ({
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: label,
+                    data: data,
+                    borderColor: color,
+                    backgroundColor: color + '20',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 0,
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: {
+                        display: true,
+                        grid: { color: '#333' },
+                        ticks: { color: '#666', maxTicksLimit: 6, maxRotation: 0 }
+                    },
+                    y: {
+                        display: true,
+                        grid: { color: '#333' },
+                        ticks: { color: '#666' }
+                    }
+                }
+            }
+        });
+        
+        function initCharts() {
+            voltChart = new Chart(document.getElementById('voltChart'), 
+                chartConfig('Voltage', '#ffcc00', [], []));
+            ampChart = new Chart(document.getElementById('ampChart'), 
+                chartConfig('Current', '#ff6b6b', [], []));
+            pfChart = new Chart(document.getElementById('pfChart'), 
+                chartConfig('Power Factor', '#00ff88', [], []));
+            powerChart = new Chart(document.getElementById('powerChart'), 
+                chartConfig('Power', '#00d4ff', [], []));
+        }
+        
+        function updateCharts(data) {
+            const labels = data.labels.map(t => {
+                const d = new Date(t);
+                return d.toLocaleTimeString('en-GB', {hour: '2-digit', minute: '2-digit'});
+            });
+            
+            voltChart.data.labels = labels;
+            voltChart.data.datasets[0].data = data.voltage;
+            voltChart.update('none');
+            
+            ampChart.data.labels = labels;
+            ampChart.data.datasets[0].data = data.current;
+            ampChart.update('none');
+            
+            pfChart.data.labels = labels;
+            pfChart.data.datasets[0].data = data.pf;
+            pfChart.update('none');
+            
+            powerChart.data.labels = labels;
+            powerChart.data.datasets[0].data = data.power;
+            powerChart.update('none');
+        }
+        
+        function updateStats(latest) {
+            if (!latest) return;
+            
+            const volt = parseFloat(latest.volt) || 0;
+            const amp = parseFloat(latest.amp) || 0;
+            const pf = parseFloat(latest.pf) || 0;
+            const energy = parseFloat(latest.energy) || 0;
+            const power = volt * amp;
+            
+            document.getElementById('currentVolt').textContent = volt.toFixed(1);
+            document.getElementById('currentAmp').textContent = amp.toFixed(3);
+            document.getElementById('currentPF').textContent = pf.toFixed(2);
+            document.getElementById('currentPower').textContent = power.toFixed(1);
+            document.getElementById('currentEnergy').textContent = energy.toFixed(2);
+            
+            const alert = document.getElementById('alert');
+            if (amp > 10 || volt > 250) {
+                alert.classList.add('show');
+            } else {
+                alert.classList.remove('show');
+            }
+        }
+        
+        async function fetchData() {
+            const devid = document.getElementById('devid').value;
+            const hours = document.getElementById('hours').value;
+            const status = document.getElementById('status');
+            
+            status.innerHTML = '<span class="refresh-indicator"></span>Fetching data...';
+            status.className = 'status';
+            
+            try {
+                const url = `${API_URL}?hours=${hours}` + (devid ? `&devid=${devid}` : '');
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.error) {
+                    status.textContent = '❌ Error: ' + data.error;
+                    status.className = 'status error';
+                    return;
+                }
+                
+                updateCharts(data);
+                updateStats(data.latest);
+                
+                const now = new Date().toLocaleTimeString();
+                const interval = document.getElementById('refreshInterval');
+                const intervalText = interval.options[interval.selectedIndex].text;
+                status.innerHTML = `<span class="refresh-indicator"></span>✅ Updated: ${now} | ${data.count} points | ${intervalText}`;
+                status.className = 'status online';
+                
+            } catch (err) {
+                status.textContent = '❌ Error: ' + err.message;
+                status.className = 'status error';
+            }
+        }
+        
+        function startAutoRefresh() {
+            if (refreshTimer) clearInterval(refreshTimer);
+            const interval = parseInt(document.getElementById('refreshInterval').value);
+            refreshTimer = setInterval(fetchData, interval);
+        }
+        
+        function toggleAutoRefresh() {
+            const btn = document.getElementById('autoBtn');
+            autoRefresh = !autoRefresh;
+            
+            if (autoRefresh) {
+                btn.textContent = '⏸️ Pause';
+                btn.classList.remove('active');
+                startAutoRefresh();
+            } else {
+                btn.textContent = '▶️ Resume';
+                btn.classList.add('active');
+                if (refreshTimer) clearInterval(refreshTimer);
+            }
+        }
+        
+        // Initialize
+        initCharts();
+        fetchData();
+        startAutoRefresh();
+        
+        // Event listeners
+        document.getElementById('devid').addEventListener('change', fetchData);
+        document.getElementById('hours').addEventListener('change', fetchData);
+        document.getElementById('refreshInterval').addEventListener('change', () => {
+            if (autoRefresh) startAutoRefresh();
+            fetchData();
+        });
+    </script>
+</body>
+</html>
